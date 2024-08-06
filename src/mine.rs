@@ -75,7 +75,7 @@ impl Miner {
         proof: Proof,
         cutoff_time: u64,
         threads: u64,
-        min_difficulty: u32,
+        _min_difficulty: u32,
     ) -> Solution {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
