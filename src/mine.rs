@@ -80,7 +80,7 @@ impl Miner {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let found_best_solution = Arc::new(AtomicBool::new(false));
-        let buffer_time = cutoff_time * 2;
+        let buffer_time = std::cmp::min(cutoff_time * 2, 90);
         progress_bar.set_message("Mining...");
 
         let handles: Vec<_> = (0..threads)
