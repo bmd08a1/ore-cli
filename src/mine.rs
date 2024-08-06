@@ -125,7 +125,7 @@ impl Miner {
 
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
-                                if timer.elapsed().as_secs().ge(&buffer_time) {
+                                if timer.elapsed().as_secs().ge(&cutoff_time) {
                                     if best_difficulty.gt(&17) {
                                         found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
