@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 
 use colored::*;
 use drillx::{
@@ -79,12 +79,15 @@ impl Miner {
     ) -> Solution {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
+        let found_best_solution = Arc::new(AtomicBool::new(false));
         progress_bar.set_message("Mining...");
+
         let handles: Vec<_> = (0..threads)
             .map(|i| {
                 std::thread::spawn({
                     let proof = proof.clone();
                     let progress_bar = progress_bar.clone();
+                    let found_best_solution_clone = found_best_solution.clone();
                     let mut memory = equix::SolverMemory::new();
                     move || {
                         let timer = Instant::now();
@@ -93,6 +96,22 @@ impl Miner {
                         let mut best_difficulty = 0;
                         let mut best_hash = Hash::default();
                         loop {
+                            if found_best_solution_clone.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            // if found_best_solution.load(Ordering::Relaxed) {
+                            //     if timer.elapsed().as_secs().ge(&buffer_time) {
+                            //         break;
+                            //     } else {
+                            //         progress_bar.set_message(format!(
+                            //             "Found best solution, idle-ing ({} sec remaining)",
+                            //             buffer_time.saturating_sub(timer.elapsed().as_secs()),
+                            //         ));
+                            //         std::thread::sleep(std::time::Duration::from_secs(1));
+                            //         continue;
+                            //     }
+                            // }
+
                             // Create hash
                             if let Ok(hx) = drillx::hash_with_memory(
                                 &mut memory,
@@ -110,7 +129,8 @@ impl Miner {
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
-                                    if best_difficulty.gt(&min_difficulty) {
+                                    if best_difficulty.gt(&12) {
+                                        found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
                                         break;
                                     }
