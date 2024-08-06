@@ -80,6 +80,7 @@ impl Miner {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let found_best_solution = Arc::new(AtomicBool::new(false));
+        let buffer_time = cutoff_time * 2;
         progress_bar.set_message("Mining...");
 
         let handles: Vec<_> = (0..threads)
@@ -97,20 +98,17 @@ impl Miner {
                         let mut best_hash = Hash::default();
                         loop {
                             if found_best_solution_clone.load(Ordering::Relaxed) {
-                                break;
+                                if timer.elapsed().as_secs().ge(&cutoff_time) {
+                                    break;
+                                } else {
+                                    progress_bar.set_message(format!(
+                                        "Found best solution, idle-ing ({} sec remaining)",
+                                        cutoff_time.saturating_sub(timer.elapsed().as_secs()),
+                                    ));
+                                    std::thread::sleep(std::time::Duration::from_secs(1));
+                                    continue;
+                                }
                             }
-                            // if found_best_solution.load(Ordering::Relaxed) {
-                            //     if timer.elapsed().as_secs().ge(&buffer_time) {
-                            //         break;
-                            //     } else {
-                            //         progress_bar.set_message(format!(
-                            //             "Found best solution, idle-ing ({} sec remaining)",
-                            //             buffer_time.saturating_sub(timer.elapsed().as_secs()),
-                            //         ));
-                            //         std::thread::sleep(std::time::Duration::from_secs(1));
-                            //         continue;
-                            //     }
-                            // }
 
                             // Create hash
                             if let Ok(hx) = drillx::hash_with_memory(
@@ -126,18 +124,22 @@ impl Miner {
                                 }
                             }
 
+                            if best_difficulty.gt(&15) {
+                                found_best_solution_clone.store(true, Ordering::Relaxed);
+                            }
+
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
-                                if timer.elapsed().as_secs().ge(&cutoff_time) {
+                                if timer.elapsed().as_secs().ge(&buffer_time) {
                                     if best_difficulty.gt(&12) {
                                         found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
                                         break;
                                     }
-                                } else if i == 0 {
+                                } else {
                                     progress_bar.set_message(format!(
                                         "Mining... ({} sec remaining)",
-                                        cutoff_time.saturating_sub(timer.elapsed().as_secs()),
+                                        buffer_time.saturating_sub(timer.elapsed().as_secs()),
                                     ));
                                 }
                             }
