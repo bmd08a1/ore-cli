@@ -80,7 +80,6 @@ impl Miner {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let found_best_solution = Arc::new(AtomicBool::new(false));
-        let buffer_time = std::cmp::min(cutoff_time * 2, 80);
         progress_bar.set_message("Mining...");
 
         let handles: Vec<_> = (0..threads)
@@ -130,7 +129,7 @@ impl Miner {
 
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
-                                if timer.elapsed().as_secs().ge(&buffer_time) {
+                                if timer.elapsed().as_secs().ge(&cutoff_time) {
                                     if best_difficulty.gt(&15) {
                                         found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
@@ -139,7 +138,7 @@ impl Miner {
                                 } else {
                                     progress_bar.set_message(format!(
                                         "Mining... ({} sec remaining)",
-                                        buffer_time.saturating_sub(timer.elapsed().as_secs()),
+                                        cutoff_time.saturating_sub(timer.elapsed().as_secs()),
                                     ));
                                 }
                             }
