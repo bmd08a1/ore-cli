@@ -133,6 +133,8 @@ impl Miner {
                             if nonce % 100 == 0 {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
                                     if best_difficulty.gt(&min) {
+                                        found_best_solution_clone.store(true, Ordering::Relaxed);
+
                                         // Mine until min difficulty has been met
                                         break;
                                     }
@@ -171,7 +173,7 @@ impl Miner {
             best_difficulty
         ));
 
-        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.lt(&19))
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.lt(&((min + best)/2)))
     }
 
     pub fn check_num_cores(&self, threads: u64) {
