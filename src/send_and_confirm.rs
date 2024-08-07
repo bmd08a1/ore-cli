@@ -79,7 +79,7 @@ impl Miner {
                 if should_increase_fee {
                     dynamic_fee + self.buffer_fee.unwrap()
                 } else {
-                    dynamic_fee
+                    dynamic_fee + self.buffer_fee.unwrap() / 3
                 }
             }
             None => {
