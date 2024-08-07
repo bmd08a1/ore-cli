@@ -45,7 +45,7 @@ impl Miner {
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
 
             // Run drillx
-            let solution = Self::find_hash_par(
+            let (solution, should_increase_fee) = Self::find_hash_par(
                 proof,
                 cutoff_time,
                 args.threads,
@@ -67,7 +67,7 @@ impl Miner {
                 find_bus(),
                 solution,
             ));
-            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false)
+            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, should_increase_fee)
                 .await
                 .ok();
         }
@@ -79,7 +79,7 @@ impl Miner {
         threads: u64,
         min: u32,
         best: u32,
-    ) -> Solution {
+    ) -> (Solution, bool) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let found_best_solution = Arc::new(AtomicBool::new(false));
@@ -173,7 +173,7 @@ impl Miner {
             best_difficulty
         ));
 
-        Solution::new(best_hash.d, best_nonce.to_le_bytes())
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.gt(&((min + best)/2)))
     }
 
     pub fn check_num_cores(&self, threads: u64) {
