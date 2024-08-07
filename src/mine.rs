@@ -175,7 +175,7 @@ impl Miner {
             best_difficulty
         ));
 
-        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.lt(&18))
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.lt(&19))
     }
 
     pub fn check_num_cores(&self, threads: u64) {
