@@ -48,7 +48,8 @@ impl Miner {
                 proof,
                 cutoff_time,
                 args.threads,
-                config.min_difficulty as u32,
+                args.min_difficulty,
+                args.best_difficulty,
             )
             .await;
 
@@ -75,7 +76,8 @@ impl Miner {
         proof: Proof,
         cutoff_time: u64,
         threads: u64,
-        _min_difficulty: u32,
+        min: u32,
+        best: u32,
     ) -> (Solution, bool) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
@@ -123,15 +125,14 @@ impl Miner {
                                 }
                             }
 
-                            if best_difficulty.gt(&23) {
+                            if best_difficulty.gt(&best) {
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
                             }
 
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
-                                    if best_difficulty.gt(&15) {
-                                        found_best_solution_clone.store(true, Ordering::Relaxed);
+                                    if best_difficulty.gt(&min) {
                                         // Mine until min difficulty has been met
                                         break;
                                     }
