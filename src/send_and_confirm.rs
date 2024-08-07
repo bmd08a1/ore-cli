@@ -96,7 +96,7 @@ impl Miner {
         // Submit tx
         let mut attempts = 0;
         loop {
-            progress_bar.set_message(format!("Submitting transaction... (attempt {})", attempts));
+            progress_bar.set_message(format!("Submitting transaction... (attempt {}, fee {})", attempts, priority_fee));
             match client.send_transaction_with_config(&tx, send_cfg).await {
                 Ok(sig) => {
                     // Skip confirmation
