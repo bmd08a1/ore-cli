@@ -101,9 +101,9 @@ impl Miner {
                             if found_best_solution_clone.load(Ordering::Relaxed) {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
                                     break;
-                                } else {
+                                } else if i == 0 {
                                     progress_bar.set_message(format!(
-                                        "Found best solution, idle-ing ({} sec remaining)",
+                                        "Idle-ing ({} sec remaining)",
                                         cutoff_time.saturating_sub(timer.elapsed().as_secs()),
                                     ));
                                     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -136,11 +136,6 @@ impl Miner {
                                         // Mine until min difficulty has been met
                                         break;
                                     }
-                                } else {
-                                    progress_bar.set_message(format!(
-                                        "Mining... ({} sec remaining)",
-                                        cutoff_time.saturating_sub(timer.elapsed().as_secs()),
-                                    ));
                                 }
                             }
 
