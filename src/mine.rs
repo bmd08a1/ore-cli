@@ -44,7 +44,7 @@ impl Miner {
 
             // Run drillx
             let config = get_config(&self.rpc_client).await;
-            let solution = Self::find_hash_par(
+            let (solution, should_reduce_fee) = Self::find_hash_par(
                 proof,
                 cutoff_time,
                 args.threads,
@@ -65,7 +65,7 @@ impl Miner {
                 find_bus(),
                 solution,
             ));
-            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false)
+            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, should_reduce_fee)
                 .await
                 .ok();
         }
@@ -76,7 +76,7 @@ impl Miner {
         cutoff_time: u64,
         threads: u64,
         _min_difficulty: u32,
-    ) -> Solution {
+    ) -> (Solution, bool) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let found_best_solution = Arc::new(AtomicBool::new(false));
@@ -175,7 +175,7 @@ impl Miner {
             best_difficulty
         ));
 
-        Solution::new(best_hash.d, best_nonce.to_le_bytes())
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.lt(&18))
     }
 
     pub fn check_num_cores(&self, threads: u64) {

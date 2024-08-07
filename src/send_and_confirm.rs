@@ -41,10 +41,12 @@ impl Miner {
         ixs: &[Instruction],
         compute_budget: ComputeBudget,
         skip_confirm: bool,
+        reduce_fee: bool,
     ) -> ClientResult<Signature> {
         let progress_bar = spinner::new_progress_bar();
         let signer = self.signer();
         let client = self.rpc_client.clone();
+        let priority_fee = if reduce_fee { self.priority_fee / 2 } else { self.priority_fee };
 
         // Return error, if balance is zero
         if let Ok(balance) = client.get_balance(&signer.pubkey()).await {
@@ -70,7 +72,7 @@ impl Miner {
             }
         }
         final_ixs.push(ComputeBudgetInstruction::set_compute_unit_price(
-            self.priority_fee,
+            priority_fee,
         ));
         final_ixs.extend_from_slice(ixs);
 
