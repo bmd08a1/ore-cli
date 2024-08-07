@@ -76,6 +76,24 @@ pub struct MineArgs {
         default_value = "5"
     )]
     pub buffer_time: u64,
+
+    #[arg(
+        long,
+        short,
+        value_name = "MIN",
+        help = "The minimum difficulty accepted",
+        default_value = "10"
+    )]
+    pub min_difficulty: u32,
+
+    #[arg(
+        long,
+        short,
+        value_name = "BEST",
+        help = "The best difficulty to stop early",
+        default_value = "10"
+    )]
+    pub best_difficulty: u32,
 }
 
 #[derive(Parser, Debug)]
