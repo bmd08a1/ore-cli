@@ -73,7 +73,13 @@ impl Miner {
 
         let priority_fee = match &self.dynamic_fee_url {
             Some(_) => {
-                self.dynamic_fee().await
+                let dynamic_fee = self.dynamic_fee().await;
+
+                if should_increase_fee {
+                    dynamic_fee + self.buffer_fee.unwrap()
+                } else {
+                    dynamic_fee
+                }
             }
             None => {
                 self.priority_fee.unwrap_or(0)

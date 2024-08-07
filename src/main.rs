@@ -35,6 +35,7 @@ struct Miner {
     pub dynamic_fee_max: Option<u64>,
     pub rpc_client: Arc<RpcClient>,
     pub fee_payer_filepath: Option<String>,
+    pub buffer_fee: Option<u64>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -135,6 +136,7 @@ struct Args {
         global = true
     )]
     dynamic_fee_strategy: Option<String>,
+
     #[arg(
         long,
         value_name = "DYNAMIC_FEE_MAX",
@@ -143,7 +145,15 @@ struct Args {
         global = true
     )]
     dynamic_fee_max: Option<u64>,
-    
+
+    #[arg(
+        long,
+        value_name = "BUFFER_FEE",
+        help = "Buffer fee for high difficulty hash.",
+        default_value = "100000",
+        global = true
+    )]
+    buffer_fee: Option<u64>,
 
     #[command(subcommand)]
     command: Commands,
@@ -179,6 +189,7 @@ async fn main() {
         args.dynamic_fee_strategy,
         args.dynamic_fee_max,
         Some(fee_payer_filepath),
+        args.buffer_fee,
     ));
 
     // Execute user command.
@@ -229,6 +240,7 @@ impl Miner {
         dynamic_fee_strategy: Option<String>,
         dynamic_fee_max: Option<u64>,
         fee_payer_filepath: Option<String>,
+        buffer_fee: Option<u64>,
     ) -> Self {
         Self {
             rpc_client,
@@ -237,7 +249,8 @@ impl Miner {
             dynamic_fee_url,
             dynamic_fee_strategy,
             dynamic_fee_max,
-            fee_payer_filepath
+            fee_payer_filepath,
+            buffer_fee,
         }
     }
 
