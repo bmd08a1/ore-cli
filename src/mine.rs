@@ -123,14 +123,14 @@ impl Miner {
                                 }
                             }
 
-                            if best_difficulty.gt(&24) {
+                            if best_difficulty.gt(&21) {
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
                             }
 
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
-                                    if best_difficulty.gt(&17) {
+                                    if best_difficulty.gt(&14) {
                                         found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
                                         break;
