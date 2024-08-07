@@ -46,7 +46,7 @@ impl Miner {
         let progress_bar = spinner::new_progress_bar();
         let signer = self.signer();
         let client = self.rpc_client.clone();
-        let priority_fee = if reduce_fee { self.priority_fee / 2 } else { self.priority_fee };
+        let priority_fee = if reduce_fee { self.low_priority_fee } else { self.priority_fee };
 
         // Return error, if balance is zero
         if let Ok(balance) = client.get_balance(&signer.pubkey()).await {

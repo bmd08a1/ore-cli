@@ -29,6 +29,7 @@ use solana_sdk::{
 struct Miner {
     pub keypair_filepath: Option<String>,
     pub priority_fee: u64,
+    pub low_priority_fee: u64,
     pub rpc_client: Arc<RpcClient>,
 }
 
@@ -106,6 +107,15 @@ struct Args {
     )]
     priority_fee: u64,
 
+    #[arg(
+        long,
+        value_name = "LOW_MICROLAMPORTS",
+        help = "Number of microlamports to pay as low priority fee per transaction",
+        default_value = "20000",
+        global = true
+    )]
+    low_priority_fee: u64,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -134,6 +144,7 @@ async fn main() {
     let miner = Arc::new(Miner::new(
         Arc::new(rpc_client),
         args.priority_fee,
+        args.low_priority_fee,
         Some(default_keypair),
     ));
 
@@ -180,12 +191,14 @@ impl Miner {
     pub fn new(
         rpc_client: Arc<RpcClient>,
         priority_fee: u64,
+        low_priority_fee: u64,
         keypair_filepath: Option<String>,
     ) -> Self {
         Self {
             rpc_client,
             keypair_filepath,
             priority_fee,
+            low_priority_fee,
         }
     }
 
