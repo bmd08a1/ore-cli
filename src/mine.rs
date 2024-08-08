@@ -100,11 +100,13 @@ impl Miner {
                             if found_best_solution_clone.load(Ordering::Relaxed) {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
                                     break;
-                                } else if i == 0 {
-                                    progress_bar.set_message(format!(
-                                        "Idle-ing ({} sec remaining)",
-                                        cutoff_time.saturating_sub(timer.elapsed().as_secs()),
-                                    ));
+                                } else {
+                                    if i == 0 {
+                                        progress_bar.set_message(format!(
+                                            "Idle-ing ({} sec remaining)",
+                                            cutoff_time.saturating_sub(timer.elapsed().as_secs()),
+                                        ));
+                                    }
                                     std::thread::sleep(std::time::Duration::from_secs(1));
                                     continue;
                                 }
