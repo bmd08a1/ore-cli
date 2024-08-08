@@ -128,6 +128,7 @@ impl Miner {
 
                             if best_difficulty.gt(&best) {
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
+                                continue;
                             }
 
                             // Exit if time has elapsed
@@ -137,6 +138,11 @@ impl Miner {
                                         found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
                                         break;
+                                    } else if i == 0 {
+                                        progress_bar.set_message(format!(
+                                            "Mining... ({} sec remaining)",
+                                            cutoff_time.saturating_sub(timer.elapsed().as_secs()),
+                                        ));
                                     }
                                 }
                             }
