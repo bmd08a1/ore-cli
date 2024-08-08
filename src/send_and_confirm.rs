@@ -25,10 +25,10 @@ const MIN_SOL_BALANCE: f64 = 0.005;
 const RPC_RETRIES: usize = 0;
 const _SIMULATION_RETRIES: usize = 4;
 const GATEWAY_RETRIES: usize = 100;
-const CONFIRM_RETRIES: usize = 8;
+const CONFIRM_RETRIES: usize = 4;
 
-const CONFIRM_DELAY: u64 = 500;
-const GATEWAY_DELAY: u64 = 0; //300;
+const CONFIRM_DELAY: u64 = 300;
+const GATEWAY_DELAY: u64 = 300; //300;
 
 pub enum ComputeBudget {
     Dynamic,
@@ -85,7 +85,7 @@ impl Miner {
             actual_fee = min_fee
         }
         if priority_fee > buffer_fee {
-            actual_fee += buffer_fee / 2
+            actual_fee += buffer_fee / 4
         }
 
         final_ixs.push(ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
