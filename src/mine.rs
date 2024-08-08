@@ -25,6 +25,9 @@ impl Miner {
         // Register, if needed.
         let signer = self.signer();
         self.open().await;
+        let mut num_hash_created = 0;
+        let mut num_hash_best_difficulty_created = 0;
+        let mut best_difficulty_created = 0;
 
         // Start mining loop
         loop {
@@ -36,12 +39,15 @@ impl Miner {
                 amount_u64_to_string(proof.balance),
                 calculate_multiplier(proof.balance, config.top_balance)
             );
+            println!("Number of hash created: {}", num_hash_created);
+            println!("Number of hash exceed {} created: {}", args.best_difficulty, num_hash_best_difficulty_created);
+            println!("Best difficulty created: {}", best_difficulty_created);
 
             // Calc cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
 
             // Run drillx
-            let (solution, should_increase_fee) = Self::find_hash_par(
+            let (solution, should_increase_fee, best_difficulty) = Self::find_hash_par(
                 proof,
                 cutoff_time,
                 args.threads,
@@ -49,6 +55,13 @@ impl Miner {
                 args.best_difficulty,
             )
             .await;
+            num_hash_created += 1;
+            if best_difficulty.gt(&args.best_difficulty) {
+                num_hash_best_difficulty_created += 1;
+            }
+            if best_difficulty.gt(&best_difficulty_created) {
+                best_difficulty_created = best_difficulty
+            }
 
             // Submit most difficult hash
             let mut compute_budget = 500_000;
@@ -75,7 +88,7 @@ impl Miner {
         threads: u64,
         min: u32,
         best: u32,
-    ) -> (Solution, bool) {
+    ) -> (Solution, bool, u32) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let found_best_solution = Arc::new(AtomicBool::new(false));
@@ -179,7 +192,7 @@ impl Miner {
             best_difficulty
         ));
 
-        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.gt(&((min + best)/2)))
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.gt(&((min + best)/2)), best_difficulty)
     }
 
     async fn should_reset(&self, config: Config) -> bool {
