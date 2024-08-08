@@ -90,6 +90,8 @@ impl Miner {
 
         final_ixs.push(ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
 
+        println!("  Dynamic fee: {} microlamports", priority_fee);
+        println!("  Buffer fee: {} microlamports", actual_fee - priority_fee);
         println!("  Actual fee: {} microlamports", actual_fee);
 
         final_ixs.extend_from_slice(ixs);
