@@ -35,6 +35,13 @@ impl Miner {
 
         // Start mining loop
         loop {
+            if num_hash_created > 0 {
+                println!("----------------------------------------------");
+                println!("- Number of hash created: {}", num_hash_created);
+                println!("- Number of hash exceed {} created: {}", args.best_difficulty, num_hash_best_difficulty_created);
+                println!("- Best difficulty created: {}", best_difficulty_created);
+                println!("----------------------------------------------");
+            }
             // Fetch proof
             let config = get_config(&self.rpc_client).await;
             let proof = get_proof_with_authority(&self.rpc_client, signer.pubkey()).await;
@@ -43,9 +50,6 @@ impl Miner {
                 amount_u64_to_string(proof.balance),
                 calculate_multiplier(proof.balance, config.top_balance)
             );
-            println!("Number of hash created: {}", num_hash_created);
-            println!("Number of hash exceed {} created: {}", args.best_difficulty, num_hash_best_difficulty_created);
-            println!("Best difficulty created: {}", best_difficulty_created);
 
             // Calc cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
