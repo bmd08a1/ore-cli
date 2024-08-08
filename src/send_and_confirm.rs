@@ -84,7 +84,7 @@ impl Miner {
         if actual_fee < min_fee {
             actual_fee = min_fee
         }
-        if priority_fee > (buffer_fee / 2) {
+        if priority_fee > buffer_fee {
             actual_fee += buffer_fee / 2
         }
 
