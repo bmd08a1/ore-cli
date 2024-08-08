@@ -34,7 +34,7 @@ impl Miner {
         let mut best_difficulty_created = 0;
 
         // Check num threads
-        self.check_num_cores(args.cores);
+        self.check_num_cores(args.threads);
 
         // Start mining loop
         let mut last_hash_at = 0;
@@ -124,7 +124,7 @@ impl Miner {
                     move || {
                         // Start hashing
                         let timer = Instant::now();
-                        let mut nonce = u64::MAX.saturating_div(cores).saturating_mul(i);
+                        let mut nonce = u64::MAX.saturating_div(threads).saturating_mul(i);
                         let mut best_nonce = nonce;
                         let mut best_difficulty = 0;
                         let mut best_hash = Hash::default();
