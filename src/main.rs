@@ -144,7 +144,7 @@ struct Args {
         long,
         value_name = "DYNAMIC_FEE_MIN",
         help = "Minimum priority fee to use for dynamic fee estimation.",
-        default_value = "15000",
+        default_value = "20000",
         global = true
     )]
     dynamic_fee_min: Option<u64>,
