@@ -1,13 +1,15 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 
+use colored::*;
 use drillx::{
     equix::{self},
     Hash, Solution,
 };
 use ore_api::{
     consts::{BUS_ADDRESSES, BUS_COUNT, EPOCH_DURATION},
-    state::{Config, Proof},
+    state::{Bus, Config, Proof},
 };
+use ore_utils::AccountDeserialize;
 use rand::Rng;
 use solana_program::pubkey::Pubkey;
 use solana_rpc_client::spinner;
@@ -16,20 +18,26 @@ use solana_sdk::signer::Signer;
 use crate::{
     args::MineArgs,
     send_and_confirm::ComputeBudget,
-    utils::{amount_u64_to_string, get_clock, get_config, get_proof_with_authority, proof_pubkey},
+    utils::{
+        amount_u64_to_string, get_clock, get_config, get_updated_proof_with_authority, proof_pubkey,
+    },
     Miner,
 };
 
 impl Miner {
     pub async fn mine(&self, args: MineArgs) {
-        // Register, if needed.
+        // Open account, if needed.
         let signer = self.signer();
         self.open().await;
         let mut num_hash_created = 0;
         let mut num_hash_best_difficulty_created = 0;
         let mut best_difficulty_created = 0;
 
+        // Check num threads
+        self.check_num_cores(args.threads);
+
         // Start mining loop
+        let mut last_hash_at = 0;
         loop {
             if num_hash_created > 0 {
                 println!("----------------------------------------------");
@@ -40,14 +48,17 @@ impl Miner {
             }
             // Fetch proof
             let config = get_config(&self.rpc_client).await;
-            let proof = get_proof_with_authority(&self.rpc_client, signer.pubkey()).await;
+            let proof =
+                get_updated_proof_with_authority(&self.rpc_client, signer.pubkey(), last_hash_at)
+                    .await;
+            last_hash_at = proof.last_hash_at;
             println!(
                 "\nStake: {} ORE\n  Multiplier: {:12}x",
                 amount_u64_to_string(proof.balance),
                 calculate_multiplier(proof.balance, config.top_balance)
             );
 
-            // Calc cutoff time
+            // Calculate cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
 
             // Run drillx
@@ -67,19 +78,23 @@ impl Miner {
                 best_difficulty_created = best_difficulty
             }
 
-            // Submit most difficult hash
-            let mut compute_budget = 500_000;
+            // Build instruction set
             let mut ixs = vec![ore_api::instruction::auth(proof_pubkey(signer.pubkey()))];
+            let mut compute_budget = 500_000;
             if self.should_reset(config).await && rand::thread_rng().gen_range(0..100).eq(&0) {
                 compute_budget += 100_000;
                 ixs.push(ore_api::instruction::reset(signer.pubkey()));
             }
+
+            // Build mine ix
             ixs.push(ore_api::instruction::mine(
                 signer.pubkey(),
                 signer.pubkey(),
-                find_bus(),
+                self.find_bus().await,
                 solution,
             ));
+
+            // Submit transaction
             self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, should_increase_fee)
                 .await
                 .ok();
@@ -199,6 +214,17 @@ impl Miner {
         (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.gt(&((min + best)/2)), best_difficulty)
     }
 
+    pub fn check_num_cores(&self, cores: u64) {
+        let num_cores = num_cpus::get() as u64;
+        if cores.gt(&num_cores) {
+            println!(
+                "{} Cannot exceeds available cores ({})",
+                "WARNING".bold().yellow(),
+                num_cores
+            );
+        }
+    }
+
     async fn should_reset(&self, config: Config) -> bool {
         let clock = get_clock(&self.rpc_client).await;
         config
@@ -217,14 +243,31 @@ impl Miner {
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64
     }
+
+    async fn find_bus(&self) -> Pubkey {
+        // Fetch the bus with the largest balance
+        if let Ok(accounts) = self.rpc_client.get_multiple_accounts(&BUS_ADDRESSES).await {
+            let mut top_bus_balance: u64 = 0;
+            let mut top_bus = BUS_ADDRESSES[0];
+            for account in accounts {
+                if let Some(account) = account {
+                    if let Ok(bus) = Bus::try_from_bytes(&account.data) {
+                        if bus.rewards.gt(&top_bus_balance) {
+                            top_bus_balance = bus.rewards;
+                            top_bus = BUS_ADDRESSES[bus.id as usize];
+                        }
+                    }
+                }
+            }
+            return top_bus;
+        }
+
+        // Otherwise return a random bus
+        let i = rand::thread_rng().gen_range(0..BUS_COUNT);
+        BUS_ADDRESSES[i]
+    }
 }
 
 fn calculate_multiplier(balance: u64, top_balance: u64) -> f64 {
     1.0 + (balance as f64 / top_balance as f64).min(1.0f64)
-}
-
-// TODO Pick a better strategy (avoid draining bus)
-fn find_bus() -> Pubkey {
-    let i = rand::thread_rng().gen_range(0..BUS_COUNT);
-    BUS_ADDRESSES[i]
 }
