@@ -78,11 +78,11 @@ impl Miner {
         };
         let mut actual_fee = priority_fee;
         let min_fee = self.dynamic_fee_min.unwrap();
-        if actual_fee < min_fee {
-            actual_fee = min_fee
-        }
         if should_increase_fee {
             actual_fee += buffer_fee
+        }
+        if actual_fee < min_fee {
+            actual_fee = min_fee
         }
         if priority_fee > (buffer_fee / 2) {
             actual_fee += buffer_fee / 2
