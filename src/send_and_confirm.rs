@@ -25,10 +25,10 @@ const MIN_SOL_BALANCE: f64 = 0.005;
 const RPC_RETRIES: usize = 0;
 const _SIMULATION_RETRIES: usize = 4;
 const GATEWAY_RETRIES: usize = 100;
-const CONFIRM_RETRIES: usize = 1;
+const CONFIRM_RETRIES: usize = 8;
 
-const CONFIRM_DELAY: u64 = 0;
-const GATEWAY_DELAY: u64 = 300;
+const CONFIRM_DELAY: u64 = 500;
+const GATEWAY_DELAY: u64 = 0; //300;
 
 pub enum ComputeBudget {
     Dynamic,
@@ -43,7 +43,6 @@ impl Miner {
         skip_confirm: bool,
         should_increase_fee: bool,
     ) -> ClientResult<Signature> {
-        let progress_bar = spinner::new_progress_bar();
         let signer = self.signer();
         let client = self.rpc_client.clone();
         let fee_payer = self.fee_payer();
@@ -73,13 +72,9 @@ impl Miner {
             }
         }
 
-        let priority_fee = match &self.dynamic_fee_url {
-            Some(_) => {
-                self.dynamic_fee().await
-            }
-            None => {
-                self.priority_fee.unwrap_or(0)
-            }
+        let priority_fee = match &self.dynamic_fee_strategy {
+            Some(_) => self.dynamic_fee().await,
+            None => self.priority_fee.unwrap_or(0),
         };
         let mut actual_fee = priority_fee;
         let min_fee = self.dynamic_fee_min.unwrap();
@@ -94,6 +89,9 @@ impl Miner {
         }
 
         final_ixs.push(ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
+
+        println!("  Actual fee: {} microlamports", actual_fee);
+
         final_ixs.extend_from_slice(ixs);
 
         // Build tx
@@ -112,7 +110,6 @@ impl Miner {
             .await
             .unwrap();
 
-
         if signer.pubkey() == fee_payer.pubkey() {
             tx.sign(&[&signer], hash);
         } else {
@@ -120,16 +117,10 @@ impl Miner {
         }
 
         // Submit tx
+        let progress_bar = spinner::new_progress_bar();
         let mut attempts = 0;
         loop {
-            let message = match &self.dynamic_fee_url {
-                Some(_) => format!(
-                    "Submitting transaction... (attempt {} with actual fee of {}, priority fee {} buffer fee {})",
-                    attempts, actual_fee, priority_fee, actual_fee - priority_fee
-                    ),
-                None => format!("Submitting transaction... (attempt {} with static priority fee of {})", attempts, priority_fee),
-            };
-            progress_bar.set_message(message);
+            progress_bar.set_message(format!("Submitting transaction... (attempt {})", attempts,));
 
             match client.send_transaction_with_config(&tx, send_cfg).await {
                 Ok(sig) => {
