@@ -92,7 +92,6 @@ impl Miner {
                 // Reset the compute unit price
                 if self.dynamic_fee {
                     let fee = if let Some(fee) = self.dynamic_fee().await {
-                        progress_bar.println(format!("  Priority fee: {} microlamports", fee));
                         let mut actual_fee = fee;
                         let min_fee = self.dynamic_fee_min.unwrap();
                         if should_increase_fee {
@@ -104,6 +103,7 @@ impl Miner {
                         if fee > buffer_fee {
                             actual_fee += buffer_fee / 4
                         }
+                        progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
                         actual_fee
                     } else {
                         let fee = self.priority_fee.unwrap_or(0);
