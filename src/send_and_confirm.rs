@@ -47,6 +47,7 @@ impl Miner {
         let signer = self.signer();
         let client = self.rpc_client.clone();
         let fee_payer = self.fee_payer();
+        let buffer_fee = self.buffer_fee.unwrap();
 
         // Return error, if balance is zero
         if let Ok(balance) = client.get_balance(&fee_payer.pubkey()).await {
@@ -74,20 +75,21 @@ impl Miner {
 
         let priority_fee = match &self.dynamic_fee_url {
             Some(_) => {
-                let dynamic_fee = self.dynamic_fee().await;
-
-                if should_increase_fee {
-                    dynamic_fee + self.buffer_fee.unwrap()
-                } else {
-                    dynamic_fee + self.buffer_fee.unwrap() / 3
-                }
+                self.dynamic_fee().await
             }
             None => {
                 self.priority_fee.unwrap_or(0)
             }
         };
+        let mut actual_fee = priority_fee;
+        if should_increase_fee {
+            actual_fee += buffer_fee
+        }
+        if priority_fee > buffer_fee {
+            actual_fee += buffer_fee / 2
+        }
 
-        final_ixs.push(ComputeBudgetInstruction::set_compute_unit_price(priority_fee));
+        final_ixs.push(ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
         final_ixs.extend_from_slice(ixs);
 
         // Build tx
@@ -117,7 +119,10 @@ impl Miner {
         let mut attempts = 0;
         loop {
             let message = match &self.dynamic_fee_url {
-                Some(_) => format!("Submitting transaction... (attempt {} with dynamic priority fee of {} via {})", attempts, priority_fee, self.dynamic_fee_strategy.as_ref().unwrap()),
+                Some(_) => format!(
+                    "Submitting transaction... (attempt {} with actual fee of {}, priority fee {} buffer fee {})",
+                    attempts, actual_fee, priority_fee, actual_fee - priority_fee
+                    ),
                 None => format!("Submitting transaction... (attempt {} with static priority fee of {})", attempts, priority_fee),
             };
             progress_bar.set_message(message);
