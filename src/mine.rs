@@ -1,6 +1,5 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 
-use colored::*;
 use drillx::{
     equix::{self},
     Hash, Solution,
@@ -26,9 +25,6 @@ impl Miner {
         // Register, if needed.
         let signer = self.signer();
         self.open().await;
-
-        // Check num threads
-        self.check_num_cores(args.cores);
 
         // Start mining loop
         loop {
@@ -96,7 +92,7 @@ impl Miner {
                     move || {
                         // Start hashing
                         let timer = Instant::now();
-                        let mut nonce = u64::MAX.saturating_div(cores).saturating_mul(i);
+                        let mut nonce = u64::MAX.saturating_div(threads).saturating_mul(i);
                         let mut best_nonce = nonce;
                         let mut best_difficulty = 0;
                         let mut best_hash = Hash::default();
@@ -182,17 +178,6 @@ impl Miner {
         ));
 
         (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.gt(&((min + best)/2)))
-    }
-
-    pub fn check_num_cores(&self, cores: u64) {
-        let num_cores = num_cpus::get() as u64;
-        if cores.gt(&num_cores) {
-            println!(
-                "{} Cannot exceeds available cores ({})",
-                "WARNING".bold().yellow(),
-                num_cores
-            );
-        }
     }
 
     async fn should_reset(&self, config: Config) -> bool {

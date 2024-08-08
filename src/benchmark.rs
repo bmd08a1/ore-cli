@@ -8,9 +8,6 @@ const TEST_DURATION: i64 = 30;
 
 impl Miner {
     pub async fn benchmark(&self, args: BenchmarkArgs) {
-        // Check num threads
-        self.check_num_cores(args.threads);
-
         // Dispatch job to each thread
         let challenge = [0; 32];
         let progress_bar = Arc::new(spinner::new_progress_bar());
