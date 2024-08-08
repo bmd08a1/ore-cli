@@ -33,6 +33,7 @@ struct Miner {
     pub dynamic_fee_url: Option<String>,
     pub dynamic_fee_strategy: Option<String>,
     pub dynamic_fee_max: Option<u64>,
+    pub dynamic_fee_min: Option<u64>,
     pub rpc_client: Arc<RpcClient>,
     pub fee_payer_filepath: Option<String>,
     pub buffer_fee: Option<u64>,
@@ -148,6 +149,15 @@ struct Args {
 
     #[arg(
         long,
+        value_name = "DYNAMIC_FEE_MIN",
+        help = "Minimum priority fee to use for dynamic fee estimation.",
+        default_value = "15000",
+        global = true
+    )]
+    dynamic_fee_min: Option<u64>,
+
+    #[arg(
+        long,
         value_name = "BUFFER_FEE",
         help = "Buffer fee for high difficulty hash.",
         default_value = "100000",
@@ -188,6 +198,7 @@ async fn main() {
         args.dynamic_fee_url,
         args.dynamic_fee_strategy,
         args.dynamic_fee_max,
+        args.dynamic_fee_min,
         Some(fee_payer_filepath),
         args.buffer_fee,
     ));
@@ -239,6 +250,7 @@ impl Miner {
         dynamic_fee_url: Option<String>,
         dynamic_fee_strategy: Option<String>,
         dynamic_fee_max: Option<u64>,
+        dynamic_fee_min: Option<u64>,
         fee_payer_filepath: Option<String>,
         buffer_fee: Option<u64>,
     ) -> Self {
@@ -249,6 +261,7 @@ impl Miner {
             dynamic_fee_url,
             dynamic_fee_strategy,
             dynamic_fee_max,
+            dynamic_fee_min,
             fee_payer_filepath,
             buffer_fee,
         }
