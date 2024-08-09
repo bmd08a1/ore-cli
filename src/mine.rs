@@ -152,18 +152,7 @@ impl Miner {
                         let mut best_hash = Hash::default();
                         loop {
                             if found_best_solution_clone.load(Ordering::Relaxed) {
-                                if timer.elapsed().as_secs().ge(&cutoff_time) {
-                                    break;
-                                } else {
-                                    if i.id == 0 {
-                                        progress_bar.set_message(format!(
-                                            "Idle-ing ({} sec remaining)",
-                                            cutoff_time.saturating_sub(timer.elapsed().as_secs()),
-                                        ));
-                                    }
-                                    std::thread::sleep(std::time::Duration::from_secs(1));
-                                    continue;
-                                }
+                                break;
                             }
                             // Create hash
                             if let Ok(hx) = drillx::hash_with_memory(
@@ -181,7 +170,7 @@ impl Miner {
 
                             if best_difficulty.gt(&best) {
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
-                                continue;
+                                break;
                             }
 
                             // Exit if time has elapsed
