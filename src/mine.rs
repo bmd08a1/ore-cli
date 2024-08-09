@@ -29,6 +29,7 @@ impl Miner {
         // Open account, if needed.
         let signer = self.signer();
         self.open().await;
+        let start = Instant::now();
         let mut num_hash_created = 0;
         let mut num_hash_best_difficulty_created = 0;
         let mut best_difficulty_created = 0;
@@ -44,6 +45,7 @@ impl Miner {
                 println!("- Number of hash created: {}", num_hash_created);
                 println!("- Number of hash exceed {} created: {}", args.best_difficulty, num_hash_best_difficulty_created);
                 println!("- Best difficulty created: {}", best_difficulty_created);
+                println!("- Time elapsed: {}", start.elapsed().as_secs());
                 println!("----------------------------------------------");
             }
             // Fetch proof
