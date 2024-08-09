@@ -25,7 +25,7 @@ const MIN_SOL_BALANCE: f64 = 0.005;
 const RPC_RETRIES: usize = 0;
 const _SIMULATION_RETRIES: usize = 4;
 const GATEWAY_RETRIES: usize = 100;
-const CONFIRM_RETRIES: usize = 2;
+const CONFIRM_RETRIES: usize = 4;
 
 const CONFIRM_DELAY: u64 = 500;
 const GATEWAY_DELAY: u64 = 0; //300;
@@ -92,26 +92,18 @@ impl Miner {
                 // Reset the compute unit price
                 if self.dynamic_fee {
                     let fee = if let Some(fee) = self.dynamic_fee().await {
-                        let mut actual_fee = fee;
-                        let min_fee = self.dynamic_fee_min.unwrap();
-                        if should_increase_fee {
-                            actual_fee += buffer_fee
-                        }
-                        if actual_fee < min_fee {
-                            actual_fee = min_fee
-                        }
-                        if fee > buffer_fee {
-                            actual_fee += buffer_fee / 4
-                        }
-                        progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
-                        actual_fee
+                        fee
                     } else {
                         let fee = self.priority_fee.unwrap_or(0);
-                        progress_bar.println(format!("  {} Dynamic fees not supported by this RPC. Falling back to static value: {} microlamports", "WARNING".bold().yellow(), fee));
                         fee
                     };
+                    let mut actual_fee = fee;
+                    if should_increase_fee {
+                        actual_fee += buffer_fee
+                    }
+                    progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
                     final_ixs.remove(1);
-                    final_ixs.insert(1, ComputeBudgetInstruction::set_compute_unit_price(fee));
+                    final_ixs.insert(1, ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
                 }
 
                 // Resign the tx
