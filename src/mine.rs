@@ -52,8 +52,8 @@ impl Miner {
                 println!("- Time elapsed: {} sec", start.elapsed().as_secs());
                 println!("- Mining time: {} sec", mining_time);
                 println!("- Submitting time: {} sec", start.elapsed().as_secs() - mining_time);
-                println!("- Last rewards: {} ORE", last_rewards);
-                println!("- Total rewards: {} ORE", total_rewards);
+                println!("- Last rewards: {} ORE", amount_u64_to_string(last_rewards));
+                println!("- Total rewards: {} ORE", amount_u64_to_string(total_rewards));
                 println!("----------------------------------------------");
             }
             let miner_timer = Instant::now();
