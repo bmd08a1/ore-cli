@@ -43,11 +43,6 @@ impl Miner {
         // Start mining loop
         let mut last_hash_at = 0;
         loop {
-            if num_hash_created > 0 {
-                println!("----------------------------------------------");
-                println!("- Number of hash created: {} (best difficulty: {})", num_hash_created, best_difficulty_created);
-                println!("- Time elapsed: {} sec (Mining: {}, submitting tx: {})", start.elapsed().as_secs(), mining_time, start.elapsed().as_secs() - mining_time);
-            }
             // Fetch proof
             let config = get_config(&self.rpc_client).await;
             let proof =
@@ -61,6 +56,9 @@ impl Miner {
             }
             current_balance = proof.balance;
             if num_hash_created > 0 {
+                println!("----------------------------------------------");
+                println!("- Number of hash created: {} (best difficulty: {})", num_hash_created, best_difficulty_created);
+                println!("- Time elapsed: {} sec (Mining: {}, submitting tx: {})", start.elapsed().as_secs(), mining_time, start.elapsed().as_secs() - mining_time);
                 println!("- Rewards: {} ORE (last: {})", amount_u64_to_string(total_rewards), amount_u64_to_string(last_rewards));
                 println!("----------------------------------------------");
             }
