@@ -33,6 +33,7 @@ impl Miner {
         let mut num_hash_created = 0;
         let mut num_hash_best_difficulty_created = 0;
         let mut best_difficulty_created = 0;
+        let mut mining_time = 0;
 
         // Check num threads
         self.check_num_cores(args.threads);
@@ -45,9 +46,12 @@ impl Miner {
                 println!("- Number of hash created: {}", num_hash_created);
                 println!("- Number of hash exceed {} created: {}", args.best_difficulty, num_hash_best_difficulty_created);
                 println!("- Best difficulty created: {}", best_difficulty_created);
-                println!("- Time elapsed: {}", start.elapsed().as_secs());
+                println!("- Time elapsed: {} sec", start.elapsed().as_secs());
+                println!("- Mining time: {} sec", mining_time);
+                println!("- Submitting time: {} sec", start.elapsed().as_secs() - mining_time);
                 println!("----------------------------------------------");
             }
+            let miner_timer = Instant::now();
             // Fetch proof
             let config = get_config(&self.rpc_client).await;
             let proof =
@@ -79,6 +83,7 @@ impl Miner {
             if best_difficulty.gt(&best_difficulty_created) {
                 best_difficulty_created = best_difficulty
             }
+            mining_time += miner_timer.elapsed().as_secs();
 
             // Build instruction set
             let mut ixs = vec![ore_api::instruction::auth(proof_pubkey(signer.pubkey()))];
