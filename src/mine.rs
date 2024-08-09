@@ -34,25 +34,43 @@ impl Miner {
         self.check_num_cores(args.cores);
 
         // Start mining loop
+        let start = Instant::now();
+        let mut num_hash_created = 0;
+        let mut best_difficulty_created = 0;
+        let mut mining_time = 0;
+        let mut total_rewards = 0;
+        let mut last_rewards = 0;
         let mut last_hash_at = 0;
         let mut last_balance = 0;
+
         loop {
             // Fetch proof
             let config = get_config(&self.rpc_client).await;
             let proof =
                 get_updated_proof_with_authority(&self.rpc_client, signer.pubkey(), last_hash_at)
                     .await;
+
+            if last_balance != 0 {
+                last_rewards = proof.balance - last_balance;
+                total_rewards += last_rewards;
+            }
+            last_balance = proof.balance;
+            if num_hash_created > 0 {
+                println!("----------------------------------------------");
+                println!("- Number of hash created: {} (best difficulty: {})", num_hash_created, best_difficulty_created);
+                println!(
+                    "- Time elapsed: {} (Mining: {}, submitting tx: {})",
+                    format_duration(start.elapsed().as_secs()),
+                    format_duration(mining_time),
+                    format_duration(start.elapsed().as_secs() - mining_time)
+                    );
+                println!("- Rewards: {} ORE (last: {})", amount_u64_to_string(total_rewards), amount_u64_to_string(last_rewards));
+                println!("----------------------------------------------");
+            }
+
             println!(
-                "\n\nStake: {} ORE\n{}  Multiplier: {:12}x",
+                "\n\nStake: {} ORE\n  Multiplier: {:12}x",
                 amount_u64_to_string(proof.balance),
-                if last_hash_at.gt(&0) {
-                    format!(
-                        "  Change: {} ORE\n",
-                        amount_u64_to_string(proof.balance.saturating_sub(last_balance))
-                    )
-                } else {
-                    "".to_string()
-                },
                 calculate_multiplier(proof.balance, config.top_balance)
             );
             last_hash_at = proof.last_hash_at;
@@ -62,9 +80,16 @@ impl Miner {
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
 
             // Run drillx
-            let (solution, should_increase_fee) =
+            let miner_timer = Instant::now();
+            let (solution, should_increase_fee, best_difficulty) =
                 Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32, args.best_difficulty)
                     .await;
+            mining_time += miner_timer.elapsed().as_secs();
+
+            num_hash_created += 1;
+            if best_difficulty.gt(&best_difficulty_created) {
+                best_difficulty_created = best_difficulty
+            }
 
             // Build instruction set
             let mut ixs = vec![ore_api::instruction::auth(proof_pubkey(signer.pubkey()))];
@@ -95,7 +120,7 @@ impl Miner {
         cores: u64,
         min_difficulty: u32,
         best: u32,
-    ) -> (Solution, bool) {
+    ) -> (Solution, bool, u32) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let found_best_solution = Arc::new(AtomicBool::new(false));
@@ -208,7 +233,7 @@ impl Miner {
             best_difficulty
         ));
 
-        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.ge(&best))
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.ge(&best), best_difficulty)
     }
 
     pub fn check_num_cores(&self, cores: u64) {
@@ -269,7 +294,7 @@ fn calculate_multiplier(balance: u64, top_balance: u64) -> f64 {
     1.0 + (balance as f64 / top_balance as f64).min(1.0f64)
 }
 
-fn format_duration(seconds: u32) -> String {
+fn format_duration(seconds: u64) -> String {
     let minutes = seconds / 60;
     let remaining_seconds = seconds % 60;
     format!("{:02}:{:02}", minutes, remaining_seconds)
