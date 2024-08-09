@@ -45,7 +45,7 @@ impl Miner {
                 println!("- Number of hash created: {}", num_hash_created);
                 println!("- Number of hash exceed {} created: {}", args.best_difficulty, num_hash_best_difficulty_created);
                 println!("- Best difficulty created: {}", best_difficulty_created);
-                println!("- Time elapsed: {}", start.elapsed().as_secs());
+                println!("- Time elapsed: {} seconds", start.elapsed().as_secs());
                 println!("----------------------------------------------");
             }
             // Fetch proof
