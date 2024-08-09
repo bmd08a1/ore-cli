@@ -42,6 +42,7 @@ impl Miner {
         ixs: &[Instruction],
         compute_budget: ComputeBudget,
         skip_confirm: bool,
+        should_increase_fee: bool,
     ) -> ClientResult<Signature> {
         let signer = self.signer();
         let client = self.rpc_client.clone();
@@ -92,22 +93,19 @@ impl Miner {
                 if self.dynamic_fee {
                     let fee = match self.dynamic_fee().await {
                         Ok(fee) => {
-                            progress_bar.println(format!("  Priority fee: {} microlamports", fee));
                             fee
                         }
-                        Err(err) => {
+                        Err(_) => {
                             let fee = self.priority_fee.unwrap_or(0);
-                            progress_bar.println(format!(
-                                "  {} {} Falling back to static value: {} microlamports",
-                                "WARNING".bold().yellow(),
-                                err,
-                                fee
-                            ));
                             fee
                         }
                     };
+
+                    let actual_fee = if should_increase_fee { fee + self.buffer_fee.unwrap() } else { fee };
+                    progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
+
                     final_ixs.remove(1);
-                    final_ixs.insert(1, ComputeBudgetInstruction::set_compute_unit_price(fee));
+                    final_ixs.insert(1, ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
                 }
 
                 // Resign the tx

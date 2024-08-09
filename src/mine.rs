@@ -62,8 +62,8 @@ impl Miner {
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
 
             // Run drillx
-            let solution =
-                Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32)
+            let (solution, should_increase_fee) =
+                Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32, args.best_difficulty)
                     .await;
 
             // Build instruction set
@@ -83,7 +83,7 @@ impl Miner {
             ));
 
             // Submit transaction
-            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false)
+            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, should_increase_fee)
                 .await
                 .ok();
         }
@@ -94,7 +94,8 @@ impl Miner {
         cutoff_time: u64,
         cores: u64,
         min_difficulty: u32,
-    ) -> Solution {
+        best: u32,
+    ) -> (Solution, bool) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
         let global_best_difficulty = Arc::new(RwLock::new(0u32));
@@ -203,7 +204,7 @@ impl Miner {
             best_difficulty
         ));
 
-        Solution::new(best_hash.d, best_nonce.to_le_bytes())
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty.ge(&best))
     }
 
     pub fn check_num_cores(&self, cores: u64) {

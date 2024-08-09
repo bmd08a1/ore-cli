@@ -32,6 +32,7 @@ use solana_sdk::{
 struct Miner {
     pub keypair_filepath: Option<String>,
     pub priority_fee: Option<u64>,
+    pub buffer_fee: Option<u64>,
     pub dynamic_fee_url: Option<String>,
     pub dynamic_fee: bool,
     pub rpc_client: Arc<RpcClient>,
@@ -137,6 +138,15 @@ struct Args {
     #[arg(long, help = "Enable dynamic priority fees", global = true)]
     dynamic_fee: bool,
 
+    #[arg(
+        long,
+        short,
+        value_name = "BUFFER_FEE",
+        help = "Added fee when difficulty is high",
+        default_value = "50000"
+    )]
+    pub buffer_fee: Option<u64>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -169,6 +179,7 @@ async fn main() {
         Some(default_keypair),
         args.dynamic_fee_url,
         args.dynamic_fee,
+        args.buffer_fee,
         Some(fee_payer_filepath),
     ));
 
@@ -224,6 +235,7 @@ impl Miner {
         keypair_filepath: Option<String>,
         dynamic_fee_url: Option<String>,
         dynamic_fee: bool,
+        buffer_fee: Option<u64>,
         fee_payer_filepath: Option<String>,
     ) -> Self {
         Self {
@@ -232,6 +244,7 @@ impl Miner {
             priority_fee,
             dynamic_fee_url,
             dynamic_fee,
+            buffer_fee,
             fee_payer_filepath,
         }
     }
