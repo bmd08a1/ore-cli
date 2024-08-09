@@ -1,4 +1,4 @@
-use std::{sync::Arc, sync::RwLock, time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 
 use colored::*;
 use drillx::{
@@ -98,17 +98,18 @@ impl Miner {
     ) -> (Solution, bool) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
-        let global_best_difficulty = Arc::new(RwLock::new(0u32));
+        let found_best_solution = Arc::new(AtomicBool::new(false));
         progress_bar.set_message("Mining...");
         let core_ids = core_affinity::get_core_ids().unwrap();
         let handles: Vec<_> = core_ids
             .into_iter()
             .map(|i| {
-                let global_best_difficulty = Arc::clone(&global_best_difficulty);
                 std::thread::spawn({
                     let proof = proof.clone();
                     let progress_bar = progress_bar.clone();
+                    let found_best_solution_clone = found_best_solution.clone();
                     let mut memory = equix::SolverMemory::new();
+
                     move || {
                         // Return if core should not be used
                         if (i.id as u64).ge(&cores) {
@@ -125,6 +126,20 @@ impl Miner {
                         let mut best_difficulty = 0;
                         let mut best_hash = Hash::default();
                         loop {
+                            if found_best_solution_clone.load(Ordering::Relaxed) {
+                                if timer.elapsed().as_secs().ge(&cutoff_time) {
+                                    break;
+                                } else {
+                                    if i.id == 0 {
+                                        progress_bar.set_message(format!(
+                                            "Idle-ing ({} sec remaining)",
+                                            cutoff_time.saturating_sub(timer.elapsed().as_secs()),
+                                        ));
+                                    }
+                                    std::thread::sleep(std::time::Duration::from_secs(1));
+                                    continue;
+                                }
+                            }
                             // Create hash
                             if let Ok(hx) = drillx::hash_with_memory(
                                 &mut memory,
@@ -136,38 +151,27 @@ impl Miner {
                                     best_nonce = nonce;
                                     best_difficulty = difficulty;
                                     best_hash = hx;
-                                    // {{ edit_1 }}
-                                    if best_difficulty.gt(&*global_best_difficulty.read().unwrap())
-                                    {
-                                        *global_best_difficulty.write().unwrap() = best_difficulty;
-                                    }
-                                    // {{ edit_1 }}
                                 }
+                            }
+
+                            if best_difficulty.gt(&best) {
+                                found_best_solution_clone.store(true, Ordering::Relaxed);
+                                continue;
                             }
 
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
-                                let global_best_difficulty =
-                                    *global_best_difficulty.read().unwrap();
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
-                                    if i.id == 0 {
-                                        progress_bar.set_message(format!(
-                                            "Mining... (difficulty {})",
-                                            global_best_difficulty,
-                                        ));
-                                    }
-                                    if global_best_difficulty.ge(&min_difficulty) {
+                                    if best_difficulty.gt(&min_difficulty) {
+                                        found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
                                         break;
                                     }
-                                } else if i.id == 0 {
+                                }
+                                if i.id == 0 {
                                     progress_bar.set_message(format!(
-                                        "Mining... (difficulty {}, time {})",
-                                        global_best_difficulty,
-                                        format_duration(
-                                            cutoff_time.saturating_sub(timer.elapsed().as_secs())
-                                                as u32
-                                        ),
+                                        "Mining... ({} sec remaining)",
+                                        cutoff_time.saturating_sub(timer.elapsed().as_secs()),
                                     ));
                                 }
                             }
