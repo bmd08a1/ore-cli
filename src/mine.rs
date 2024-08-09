@@ -59,22 +59,23 @@ impl Miner {
                 get_updated_proof_with_authority(&self.rpc_client, signer.pubkey(), last_hash_at)
                     .await;
             last_hash_at = proof.last_hash_at;
-            println!(
-                "\nStake: {} ORE\n  Multiplier: {:12}x",
-                amount_u64_to_string(proof.balance),
-                calculate_multiplier(proof.balance, config.top_balance)
-            );
+
             if current_balance != 0 {
                 last_rewards = proof.balance - current_balance;
                 total_rewards += last_rewards;
             }
             current_balance = proof.balance;
-
             if num_hash_created > 0 {
-                println!("- Last rewards: {} ORE", amount_u64_to_string(last_rewards));
+                println!("- Last rewards:  {} ORE", amount_u64_to_string(last_rewards));
                 println!("- Total rewards: {} ORE", amount_u64_to_string(total_rewards));
                 println!("----------------------------------------------");
             }
+
+            println!(
+                "\nStake: {} ORE\n  Multiplier: {:12}x",
+                amount_u64_to_string(proof.balance),
+                calculate_multiplier(proof.balance, config.top_balance)
+            );
 
             // Calculate cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
