@@ -38,8 +38,8 @@ impl Miner {
         let mut last_rewards = 0;
         let mut current_balance = 0;
 
-        // Check num threads
-        self.check_num_cores(args.threads);
+        // Check num cores
+        self.check_num_cores(args.cores);
 
         // Start mining loop
         let mut last_hash_at = 0;
@@ -81,7 +81,7 @@ impl Miner {
             let (solution, should_increase_fee, best_difficulty) = Self::find_hash_par(
                 proof,
                 cutoff_time,
-                args.threads,
+                args.cores,
                 args.min_difficulty,
                 args.best_difficulty,
             )
@@ -121,7 +121,7 @@ impl Miner {
     async fn find_hash_par(
         proof: Proof,
         cutoff_time: u64,
-        threads: u64,
+        cores: u64,
         min: u32,
         best: u32,
     ) -> (Solution, bool, u32) {
@@ -130,7 +130,8 @@ impl Miner {
         let found_best_solution = Arc::new(AtomicBool::new(false));
         progress_bar.set_message("Mining...");
 
-        let handles: Vec<_> = (0..threads)
+        let core_ids = core_affinity::get_core_ids().unwrap();
+        let handles: Vec<_> = core_ids
             .into_iter()
             .map(|i| {
                 std::thread::spawn({
@@ -138,10 +139,18 @@ impl Miner {
                     let progress_bar = progress_bar.clone();
                     let found_best_solution_clone = found_best_solution.clone();
                     let mut memory = equix::SolverMemory::new();
+
+
                     move || {
+                        if (i.id as u64).ge(&cores) {
+                            return (0, 0, Hash::default());
+                        }
+
+                        // Pin to core
+                        let _ = core_affinity::set_for_current(i);
                         // Start hashing
                         let timer = Instant::now();
-                        let mut nonce = u64::MAX.saturating_div(threads).saturating_mul(i);
+                        let mut nonce = u64::MAX.saturating_div(cores).saturating_mul(i.id as u64);
                         let mut best_nonce = nonce;
                         let mut best_difficulty = 0;
                         let mut best_hash = Hash::default();
@@ -150,7 +159,7 @@ impl Miner {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
                                     break;
                                 } else {
-                                    if i == 0 {
+                                    if i.id == 0 {
                                         progress_bar.set_message(format!(
                                             "Idle-ing ({} sec remaining)",
                                             cutoff_time.saturating_sub(timer.elapsed().as_secs()),
@@ -188,7 +197,7 @@ impl Miner {
                                         // Mine until min difficulty has been met
                                         break;
                                     }
-                                } else if i == 0 {
+                                } else if i.id == 0 {
                                     progress_bar.set_message(format!(
                                         "Mining... ({} sec remaining)",
                                         cutoff_time.saturating_sub(timer.elapsed().as_secs()),
