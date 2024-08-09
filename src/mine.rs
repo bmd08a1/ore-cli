@@ -52,11 +52,7 @@ impl Miner {
                 println!("- Time elapsed: {} sec", start.elapsed().as_secs());
                 println!("- Mining time: {} sec", mining_time);
                 println!("- Submitting time: {} sec", start.elapsed().as_secs() - mining_time);
-                println!("- Last rewards: {} ORE", amount_u64_to_string(last_rewards));
-                println!("- Total rewards: {} ORE", amount_u64_to_string(total_rewards));
-                println!("----------------------------------------------");
             }
-            let miner_timer = Instant::now();
             // Fetch proof
             let config = get_config(&self.rpc_client).await;
             let proof =
@@ -74,9 +70,16 @@ impl Miner {
             }
             current_balance = proof.balance;
 
+            if num_hash_created > 0 {
+                println!("- Last rewards: {} ORE", amount_u64_to_string(last_rewards));
+                println!("- Total rewards: {} ORE", amount_u64_to_string(total_rewards));
+                println!("----------------------------------------------");
+            }
+
             // Calculate cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
 
+            let miner_timer = Instant::now();
             // Run drillx
             let (solution, should_increase_fee, best_difficulty) = Self::find_hash_par(
                 proof,
@@ -86,6 +89,8 @@ impl Miner {
                 args.best_difficulty,
             )
             .await;
+            mining_time += miner_timer.elapsed().as_secs();
+
             num_hash_created += 1;
             if best_difficulty.gt(&args.best_difficulty) {
                 num_hash_best_difficulty_created += 1;
@@ -93,7 +98,6 @@ impl Miner {
             if best_difficulty.gt(&best_difficulty_created) {
                 best_difficulty_created = best_difficulty
             }
-            mining_time += miner_timer.elapsed().as_secs();
 
             // Build instruction set
             let mut ixs = vec![ore_api::instruction::auth(proof_pubkey(signer.pubkey()))];
