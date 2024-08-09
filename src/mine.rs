@@ -74,7 +74,6 @@ impl Miner {
                 calculate_multiplier(proof.balance, config.top_balance)
             );
             last_hash_at = proof.last_hash_at;
-            last_balance = proof.balance;
 
             // Calculate cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
@@ -108,9 +107,11 @@ impl Miner {
             ));
 
             // Submit transaction
-            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, should_increase_fee)
-                .await
-                .ok();
+            match self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, should_increase_fee)
+                .await {
+                    Ok(_) => {},
+                    Err(_) => {}
+            };
         }
     }
 
