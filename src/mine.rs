@@ -155,16 +155,21 @@ impl Miner {
                                 break;
                             }
                             // Create hash
-                            if let Ok(hx) = drillx::hash_with_memory(
+                            if let Ok(hx_array) = drillx::hash_with_memory(
                                 &mut memory,
                                 &proof.challenge,
                                 &nonce.to_le_bytes(),
                             ) {
-                                let difficulty = hx.difficulty();
-                                if difficulty.gt(&best_difficulty) {
-                                    best_nonce = nonce;
-                                    best_difficulty = difficulty;
-                                    best_hash = hx;
+                                for hx in hx_array.into_iter() {
+                                    if hx.is_valid(&proof.challenge, &nonce.to_le_bytes()) {
+                                        let difficulty = hx.difficulty();
+
+                                        if difficulty.gt(&best_difficulty) {
+                                            best_nonce = nonce;
+                                            best_difficulty = difficulty;
+                                            best_hash = hx;
+                                        }
+                                    }
                                 }
                             }
 
