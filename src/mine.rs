@@ -34,6 +34,9 @@ impl Miner {
         let mut num_hash_best_difficulty_created = 0;
         let mut best_difficulty_created = 0;
         let mut mining_time = 0;
+        let mut total_rewards = 0;
+        let mut last_rewards = 0;
+        let mut current_balance = 0;
 
         // Check num threads
         self.check_num_cores(args.threads);
@@ -49,6 +52,8 @@ impl Miner {
                 println!("- Time elapsed: {} sec", start.elapsed().as_secs());
                 println!("- Mining time: {} sec", mining_time);
                 println!("- Submitting time: {} sec", start.elapsed().as_secs() - mining_time);
+                println!("- Last rewards: {} ORE", last_rewards);
+                println!("- Total rewards: {} ORE", total_rewards);
                 println!("----------------------------------------------");
             }
             let miner_timer = Instant::now();
@@ -63,6 +68,11 @@ impl Miner {
                 amount_u64_to_string(proof.balance),
                 calculate_multiplier(proof.balance, config.top_balance)
             );
+            if current_balance != 0 {
+                last_rewards = proof.balance - current_balance;
+                total_rewards += last_rewards;
+            }
+            current_balance = proof.balance;
 
             // Calculate cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
