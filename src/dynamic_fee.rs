@@ -47,7 +47,7 @@ impl Miner {
                         "accountKeys": ore_addresses,
                         "options": {
                             "recommended": false,
-                            "priority_level": "LOW"
+                            "priority_level": "MEDIUM"
                         }
                     }]
                 })
