@@ -31,7 +31,6 @@ impl Miner {
         self.open().await;
         let start = Instant::now();
         let mut num_hash_created = 0;
-        let mut num_hash_best_difficulty_created = 0;
         let mut best_difficulty_created = 0;
         let mut mining_time = 0;
         let mut total_rewards = 0;
@@ -46,12 +45,8 @@ impl Miner {
         loop {
             if num_hash_created > 0 {
                 println!("----------------------------------------------");
-                println!("- Number of hash created: {}", num_hash_created);
-                println!("- Number of hash exceed {} created: {}", args.best_difficulty, num_hash_best_difficulty_created);
-                println!("- Best difficulty created: {}", best_difficulty_created);
-                println!("- Time elapsed: {} sec", start.elapsed().as_secs());
-                println!("- Mining time: {} sec", mining_time);
-                println!("- Submitting time: {} sec", start.elapsed().as_secs() - mining_time);
+                println!("- Number of hash created: {} (best difficulty: {})", num_hash_created, best_difficulty_created);
+                println!("- Time elapsed: {} sec (Mining: {}, submitting tx: {})", start.elapsed().as_secs(), mining_time, start.elapsed().as_secs() - mining_time);
             }
             // Fetch proof
             let config = get_config(&self.rpc_client).await;
@@ -66,8 +61,7 @@ impl Miner {
             }
             current_balance = proof.balance;
             if num_hash_created > 0 {
-                println!("- Last rewards:  {} ORE", amount_u64_to_string(last_rewards));
-                println!("- Total rewards: {} ORE", amount_u64_to_string(total_rewards));
+                println!("- Rewards: {} ORE (last: {})", amount_u64_to_string(total_rewards), amount_u64_to_string(last_rewards));
                 println!("----------------------------------------------");
             }
 
@@ -93,9 +87,6 @@ impl Miner {
             mining_time += miner_timer.elapsed().as_secs();
 
             num_hash_created += 1;
-            if best_difficulty.gt(&args.best_difficulty) {
-                num_hash_best_difficulty_created += 1;
-            }
             if best_difficulty.gt(&best_difficulty_created) {
                 best_difficulty_created = best_difficulty
             }
