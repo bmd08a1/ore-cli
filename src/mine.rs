@@ -109,9 +109,9 @@ impl Miner {
             // Submit transaction
             match self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, should_increase_fee)
                 .await {
-                    Ok(_) => {},
+                    Ok(_) => {}
                     Err(_) => {}
-            };
+                };
         }
     }
 
