@@ -178,9 +178,15 @@ impl Miner {
                             }
 
                             if best_difficulty.ge(&best) {
-                                if timer.elapsed().as_secs().lt(&MIN_MINE_TIME) {
-                                    std::thread::sleep(Duration::from_secs(MIN_MINE_TIME - timer.elapsed().as_secs()));
+                                let mined_time = timer.elapsed().as_secs();
+                                if mined_time.lt(&cutoff_time) {
+                                    if cutoff_time < MIN_MINE_TIME {
+                                        std::thread::sleep(Duration::from_secs(cutoff_time - mined_time));
+                                    } else {
+                                        std::thread::sleep(Duration::from_secs(MIN_MINE_TIME - mined_time));
+                                    }
                                 }
+
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
                                 break;
                             }
@@ -261,7 +267,7 @@ impl Miner {
         let clock = get_clock(&self.rpc_client).await;
         proof
             .last_hash_at
-            .saturating_add(72)
+            .saturating_add(66)
             .saturating_sub(buffer_time as i64)
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64
