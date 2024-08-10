@@ -25,11 +25,11 @@ const MIN_SOL_BALANCE: f64 = 0.005;
 
 const RPC_RETRIES: usize = 0;
 const _SIMULATION_RETRIES: usize = 4;
-const GATEWAY_RETRIES: usize = 72;
+const GATEWAY_RETRIES: u64 = 50;
 const CONFIRM_RETRIES: usize = 2;
 
-const CONFIRM_DELAY: u64 = 300;
-const GATEWAY_DELAY: u64 = 300; //300;
+const CONFIRM_DELAY: u64 = 500;
+const GATEWAY_DELAY: u64 = 500; //300;
 
 pub enum ComputeBudget {
     Dynamic,
@@ -47,6 +47,7 @@ impl Miner {
         let signer = self.signer();
         let client = self.rpc_client.clone();
         let fee_payer = self.fee_payer();
+        let buffer_fee = self.buffer_fee.unwrap();
 
         // Return error, if balance is zero
         self.check_balance().await;
@@ -101,7 +102,8 @@ impl Miner {
                         }
                     };
 
-                    let actual_fee = if should_increase_fee { fee + self.buffer_fee.unwrap() } else { fee };
+                    let mut actual_fee = if should_increase_fee { fee + buffer_fee } else { fee };
+                    actual_fee += (attempts / 10) * (buffer_fee / 4);
                     progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
 
                     final_ixs.remove(1);

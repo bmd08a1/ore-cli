@@ -1,4 +1,5 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}, mpsc}, time::Instant};
+use std::time::Duration;
 
 use colored::*;
 use drillx::{
@@ -23,6 +24,9 @@ use crate::{
     },
     Miner,
 };
+
+const MIN_MINE_TIME: u64 = 15;
+const MAX_MINE_TIME: u64 = 90;
 
 impl Miner {
     pub async fn mine(&self, args: MineArgs) {
@@ -81,7 +85,7 @@ impl Miner {
             // Run drillx
             let miner_timer = Instant::now();
             let (solution, should_increase_fee, best_difficulty) =
-                Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32, args.best_difficulty)
+                Self::find_hash_par(proof, cutoff_time, args.cores, args.min_difficulty, args.best_difficulty)
                     .await;
             mining_time += miner_timer.elapsed().as_secs();
 
@@ -154,17 +158,21 @@ impl Miner {
                             if found_best_solution_clone.load(Ordering::Relaxed) {
                                 break;
                             }
+
                             // Create hash
-                            if let Ok(hx) = drillx::hash_with_memory(
+                            if let Ok(hx_array) = drillx::hash_with_memory(
                                 &mut memory,
                                 &proof.challenge,
                                 &nonce.to_le_bytes(),
                             ) {
-                                let difficulty = hx.difficulty();
+                                for hx in hx_array.into_iter() {
+                                    if hx.is_valid(&proof.challenge, &nonce.to_le_bytes()) {
+                                        let difficulty = hx.difficulty();
 
-                                let _ = tx_clone.send((hx, nonce, difficulty));
+                                        let _ = tx_clone.send((hx, nonce, difficulty));
+                                    }
+                                }
                             }
-
 
                             // Increment nonce
                             nonce += 1;
@@ -187,6 +195,11 @@ impl Miner {
                 let timer = Instant::now();
 
                 loop {
+                    if timer.elapsed().as_secs().gt(&MAX_MINE_TIME) {
+                        found_best_solution_clone.store(true, Ordering::Relaxed);
+                        break;
+                    }
+
                     let (hx, nonce, difficulty): (Hash, u64, u32) = rx.recv().unwrap();
 
                     if difficulty.gt(&best_difficulty) {
@@ -196,6 +209,11 @@ impl Miner {
                     }
 
                     if best_difficulty.gt(&best) {
+                        let mined_time = timer.elapsed().as_secs();
+
+                        if mined_time < MIN_MINE_TIME {
+                            std::thread::sleep(Duration::from_secs(MIN_MINE_TIME - mined_time));
+                        }
                         found_best_solution_clone.store(true, Ordering::Relaxed);
                         break;
                     }
