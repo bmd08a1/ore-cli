@@ -162,7 +162,7 @@ impl Miner {
                             ) {
                                 let difficulty = hx.difficulty();
 
-                                tx_clone.send((hx, nonce, difficulty)).unwrap();
+                                let _ = tx_clone.send((hx, nonce, difficulty));
                             }
 
 
