@@ -26,7 +26,6 @@ use crate::{
 };
 
 const MIN_MINE_TIME: u64 = 15;
-const MAX_MINE_TIME: u64 = 90;
 
 impl Miner {
     pub async fn mine(&self, args: MineArgs) {
@@ -195,7 +194,7 @@ impl Miner {
                 let timer = Instant::now();
 
                 loop {
-                    if timer.elapsed().as_secs().gt(&MAX_MINE_TIME) {
+                    if timer.elapsed().as_secs().gt(&cutoff_time) {
                         found_best_solution_clone.store(true, Ordering::Relaxed);
                         break;
                     }
@@ -220,13 +219,6 @@ impl Miner {
 
                     // Exit if time has elapsed
                     if counter % 100 == 0 {
-                        if timer.elapsed().as_secs().ge(&cutoff_time) {
-                            if best_difficulty.gt(&min_difficulty) {
-                                found_best_solution_clone.store(true, Ordering::Relaxed);
-                                // Mine until min difficulty has been met
-                                break;
-                            }
-                        }
                         progress_bar.set_message(format!(
                             "Mining... ({} sec remaining, difficulty {} / {} / {})",
                             cutoff_time.saturating_sub(timer.elapsed().as_secs()),
@@ -284,7 +276,7 @@ impl Miner {
         let clock = get_clock(&self.rpc_client).await;
         proof
             .last_hash_at
-            .saturating_add(60)
+            .saturating_add(72)
             .saturating_sub(buffer_time as i64)
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64
