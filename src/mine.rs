@@ -228,8 +228,11 @@ impl Miner {
                             }
                         }
                         progress_bar.set_message(format!(
-                            "Mining... ({} sec remaining)",
+                            "Mining... ({} sec remaining, difficulty {} / {} / {})",
                             cutoff_time.saturating_sub(timer.elapsed().as_secs()),
+                            best_difficulty,
+                            min_difficulty,
+                            best
                         ));
                     }
 
