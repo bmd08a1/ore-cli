@@ -179,7 +179,7 @@ impl Miner {
 
                             if best_difficulty.ge(&best) {
                                 if timer.elapsed().as_secs().lt(&MIN_MINE_TIME) {
-                                    std::thread::sleep(Duration::from_millis(MIN_MINE_TIME - timer.elapsed().as_secs()));
+                                    std::thread::sleep(Duration::from_secs(MIN_MINE_TIME - timer.elapsed().as_secs()));
                                 }
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
                                 break;
