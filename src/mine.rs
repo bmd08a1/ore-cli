@@ -26,6 +26,7 @@ use crate::{
 };
 
 const MIN_MINE_TIME: u64 = 15;
+const MAX_MINE_TIME: u64 = 90;
 
 impl Miner {
     pub async fn mine(&self, args: MineArgs) {
@@ -158,6 +159,10 @@ impl Miner {
                             if found_best_solution_clone.load(Ordering::Relaxed) {
                                 break;
                             }
+                            if timer.elapsed().as_secs().gt(&MAX_MINE_TIME) {
+                                break;
+                            }
+
                             // Create hash
                             if let Ok(hx_array) = drillx::hash_with_memory(
                                 &mut memory,
@@ -267,7 +272,7 @@ impl Miner {
         let clock = get_clock(&self.rpc_client).await;
         proof
             .last_hash_at
-            .saturating_add(66)
+            .saturating_add(60)
             .saturating_sub(buffer_time as i64)
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64
