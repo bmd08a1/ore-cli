@@ -75,9 +75,18 @@ pub struct MineArgs {
         short,
         value_name = "BEST_DIFFICULTY",
         help = "Best difficulty to stop right away",
-        default_value = "24"
+        default_value = "21"
     )]
     pub best_difficulty: u32,
+
+    #[arg(
+        long,
+        short,
+        value_name = "MIN_DIFFICULTY",
+        help = "Min difficulty to be accepted",
+        default_value = "17"
+    )]
+    pub min_difficulty: u32,
 }
 
 #[derive(Parser, Debug)]

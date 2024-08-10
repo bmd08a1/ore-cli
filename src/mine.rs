@@ -81,7 +81,7 @@ impl Miner {
             // Run drillx
             let miner_timer = Instant::now();
             let (solution, should_increase_fee, best_difficulty) =
-                Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32, args.best_difficulty)
+                Self::find_hash_par(proof, cutoff_time, args.cores, args.min_difficulty, args.best_difficulty)
                     .await;
             mining_time += miner_timer.elapsed().as_secs();
 
@@ -174,7 +174,7 @@ impl Miner {
                                 }
                             }
 
-                            if best_difficulty.gt(&best) {
+                            if best_difficulty.ge(&best) {
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
                                 break;
                             }
@@ -182,7 +182,7 @@ impl Miner {
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
-                                    if best_difficulty.gt(&min_difficulty) {
+                                    if best_difficulty.ge(&min_difficulty) {
                                         found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
                                         break;
@@ -255,7 +255,7 @@ impl Miner {
         let clock = get_clock(&self.rpc_client).await;
         proof
             .last_hash_at
-            .saturating_add(60)
+            .saturating_add(72)
             .saturating_sub(buffer_time as i64)
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64
