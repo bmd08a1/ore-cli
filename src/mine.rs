@@ -184,12 +184,10 @@ impl Miner {
 
                             if best_difficulty.ge(&best) {
                                 let mined_time = timer.elapsed().as_secs();
-                                if mined_time.lt(&cutoff_time) {
-                                    if cutoff_time < MIN_MINE_TIME {
-                                        std::thread::sleep(Duration::from_secs(cutoff_time - mined_time));
-                                    } else {
-                                        std::thread::sleep(Duration::from_secs(MIN_MINE_TIME - mined_time));
-                                    }
+
+                                if mined_time < cutoff_time {
+                                    let sleep_duration = std::cmp::max(cutoff_time, MIN_MINE_TIME) - mined_time;
+                                    std::thread::sleep(Duration::from_secs(sleep_duration));
                                 }
 
                                 found_best_solution_clone.store(true, Ordering::Relaxed);
