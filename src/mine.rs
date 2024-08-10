@@ -258,7 +258,7 @@ impl Miner {
             .saturating_add(60)
             .saturating_sub(buffer_time as i64)
             .saturating_sub(clock.unix_timestamp)
-            .max(0) as u64
+            .min(7) as u64
     }
 
     async fn find_bus(&self) -> Pubkey {
