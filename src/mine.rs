@@ -84,7 +84,7 @@ impl Miner {
             // Run drillx
             let miner_timer = Instant::now();
             let (solution, should_increase_fee, best_difficulty) =
-                Self::find_hash_par(proof, cutoff_time, args.cores, args.min_difficulty, args.best_difficulty)
+                Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32, args.best_difficulty)
                     .await;
             mining_time += miner_timer.elapsed().as_secs();
 
