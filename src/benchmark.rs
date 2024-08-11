@@ -48,12 +48,8 @@ impl Miner {
                                 &challenge,
                                 &nonce.to_le_bytes(),
                             ) {
-                                for hx in hx_array.into_iter() {
-                                    if hx.is_valid(&challenge, &nonce.to_le_bytes()) {
-                                        let _difficulty = hx.difficulty();
-
-                                        hash_created += 1;
-                                    }
+                                for _hx in hx_array.into_iter() {
+                                    hash_created += 1;
                                 }
                             }
 

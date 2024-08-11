@@ -159,14 +159,12 @@ impl Miner {
                                 &nonce.to_le_bytes(),
                             ) {
                                 for hx in hx_array.into_iter() {
-                                    if hx.is_valid(&proof.challenge, &nonce.to_le_bytes()) {
-                                        let difficulty = hx.difficulty();
+                                    let difficulty = hx.difficulty();
 
-                                        if difficulty.gt(&best_difficulty) {
-                                            best_nonce = nonce;
-                                            best_difficulty = difficulty;
-                                            best_hash = hx;
-                                        }
+                                    if difficulty.gt(&best_difficulty) {
+                                        best_nonce = nonce;
+                                        best_difficulty = difficulty;
+                                        best_hash = hx;
                                     }
                                 }
                             }
