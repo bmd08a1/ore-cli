@@ -1,4 +1,5 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
+use std::time::Duration;
 use colored::*;
 use drillx::{
     equix::{self},
@@ -22,6 +23,8 @@ use crate::{
     },
     Miner,
 };
+
+const MIN_MINE_TIME: u64 = 15;
 
 impl Miner {
     pub async fn mine(&self, args: MineArgs) {
@@ -72,7 +75,7 @@ impl Miner {
 
             // Run drillx
             let (solution, best_difficulty) =
-                Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32)
+                Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32, args.best_difficulty)
                     .await;
             num_hash_created += 1;
             if best_difficulty.gt(&best_difficulty_created) {
@@ -112,6 +115,7 @@ impl Miner {
         cutoff_time: u64,
         cores: u64,
         min_difficulty: u32,
+        best_difficulty_to_stop: u32,
     ) -> (Solution, u32) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
@@ -165,6 +169,17 @@ impl Miner {
                                         }
                                     }
                                 }
+                            }
+
+                            if best_difficulty.ge(&best_difficulty_to_stop) {
+                                let mined_time = timer.elapsed().as_secs();
+
+                                if mined_time < MIN_MINE_TIME {
+                                    std::thread::sleep(Duration::from_secs(MIN_MINE_TIME - mined_time));
+                                }
+
+                                found_best_solution_clone.store(true, Ordering::Relaxed);
+                                break;
                             }
 
                             // Exit if time has elapsed
