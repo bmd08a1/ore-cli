@@ -31,13 +31,13 @@ const MIN_SOL_BALANCE: f64 = 0.005;
 
 const RPC_RETRIES: usize = 0;
 const _SIMULATION_RETRIES: usize = 4;
-const GATEWAY_RETRIES: u64 = 50;
+const GATEWAY_RETRIES: u64 = 70;
 const CONFIRM_RETRIES: usize = 2;
 
 const CONFIRM_DELAY: u64 = 500;
 const GATEWAY_DELAY: u64 = 500;
 
-const BUFFER_FEE: u64 = 40000;
+const BUFFER_FEE: u64 = 50000;
 
 pub enum ComputeBudget {
     #[allow(dead_code)]
@@ -142,7 +142,7 @@ impl Miner {
                         };
 
                         let mut actual_fee = fee + BUFFER_FEE;
-                        actual_fee += (attempts / 10) * (BUFFER_FEE / 4);
+                        actual_fee += (attempts / 10) * (BUFFER_FEE / 5);
                         progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
 
                         final_ixs.remove(1);
@@ -151,7 +151,7 @@ impl Miner {
                     }
                 } else {
                     let mut actual_fee = self.priority_fee.unwrap_or(0);
-                    actual_fee += (attempts / 10) * (BUFFER_FEE / 4);
+                    actual_fee += (attempts / 10) * (BUFFER_FEE / 10);
                     progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
 
                     final_ixs.remove(1);
