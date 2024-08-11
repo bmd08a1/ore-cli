@@ -1,4 +1,4 @@
-use std::{sync::Arc, sync::RwLock, time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use colored::*;
 use drillx::{
     equix::{self},
@@ -33,6 +33,12 @@ impl Miner {
         self.check_num_cores(args.cores);
 
         // Start mining loop
+        let start = Instant::now();
+        let mut num_hash_created = 0;
+        let mut best_difficulty_created = 0;
+        let mut worst_difficulty_created = u32::MAX;
+        let mut total_rewards = 0;
+        let mut last_rewards = 0;
         let mut last_hash_at = 0;
         let mut last_balance = 0;
         loop {
@@ -41,29 +47,40 @@ impl Miner {
             let proof =
                 get_updated_proof_with_authority(&self.rpc_client, signer.pubkey(), last_hash_at)
                     .await;
+            if last_balance != 0 {
+                last_rewards = proof.balance - last_balance;
+                total_rewards += last_rewards;
+            }
+            last_balance = proof.balance;
+            if num_hash_created > 0 {
+                println!("----------------------------------------------");
+                println!("- Number of hash created: {} (best: {}, worst: {})", num_hash_created, best_difficulty_created, worst_difficulty_created);
+                println!("- Time elapsed: {}", format_duration(start.elapsed().as_secs()));
+                println!("- Rewards: {} ORE (last: {})", amount_u64_to_string(total_rewards), amount_u64_to_string(last_rewards));
+                println!("----------------------------------------------");
+            }
+
             println!(
-                "\n\nStake: {} ORE\n{}  Multiplier: {:12}x",
+                "\n\nStake: {} ORE\n  Multiplier: {:12}x",
                 amount_u64_to_string(proof.balance),
-                if last_hash_at.gt(&0) {
-                    format!(
-                        "  Change: {} ORE\n",
-                        amount_u64_to_string(proof.balance.saturating_sub(last_balance))
-                    )
-                } else {
-                    "".to_string()
-                },
                 calculate_multiplier(proof.balance, config.top_balance)
             );
             last_hash_at = proof.last_hash_at;
-            last_balance = proof.balance;
 
             // Calculate cutoff time
             let cutoff_time = self.get_cutoff(proof, args.buffer_time).await;
 
             // Run drillx
-            let solution =
+            let (solution, best_difficulty) =
                 Self::find_hash_par(proof, cutoff_time, args.cores, config.min_difficulty as u32)
                     .await;
+            num_hash_created += 1;
+            if best_difficulty.gt(&best_difficulty_created) {
+                best_difficulty_created = best_difficulty
+            }
+            if best_difficulty.lt(&worst_difficulty_created) {
+                worst_difficulty_created = best_difficulty
+            }
 
             // Build instruction set
             let mut ixs = vec![ore_api::instruction::auth(proof_pubkey(signer.pubkey()))];
@@ -82,9 +99,11 @@ impl Miner {
             ));
 
             // Submit transaction
-            self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false)
-                .await
-                .ok();
+            match self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false)
+                .await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                };
         }
     }
 
@@ -93,20 +112,22 @@ impl Miner {
         cutoff_time: u64,
         cores: u64,
         min_difficulty: u32,
-    ) -> Solution {
+    ) -> (Solution, u32) {
         // Dispatch job to each thread
         let progress_bar = Arc::new(spinner::new_progress_bar());
-        let global_best_difficulty = Arc::new(RwLock::new(0u32));
+        let found_best_solution = Arc::new(AtomicBool::new(false));
+
         progress_bar.set_message("Mining...");
         let core_ids = core_affinity::get_core_ids().unwrap();
         let handles: Vec<_> = core_ids
             .into_iter()
             .map(|i| {
-                let global_best_difficulty = Arc::clone(&global_best_difficulty);
                 std::thread::spawn({
                     let proof = proof.clone();
                     let progress_bar = progress_bar.clone();
+                    let found_best_solution_clone = found_best_solution.clone();
                     let mut memory = equix::SolverMemory::new();
+
                     move || {
                         // Return if core should not be used
                         if (i.id as u64).ge(&cores) {
@@ -123,6 +144,10 @@ impl Miner {
                         let mut best_difficulty = 0;
                         let mut best_hash = Hash::default();
                         loop {
+                            if found_best_solution_clone.load(Ordering::Relaxed) {
+                                break;
+                            }
+
                             // Create hash
                             if let Ok(hx) = drillx::hash_with_memory(
                                 &mut memory,
@@ -134,38 +159,22 @@ impl Miner {
                                     best_nonce = nonce;
                                     best_difficulty = difficulty;
                                     best_hash = hx;
-                                    // {{ edit_1 }}
-                                    if best_difficulty.gt(&*global_best_difficulty.read().unwrap())
-                                    {
-                                        *global_best_difficulty.write().unwrap() = best_difficulty;
-                                    }
-                                    // {{ edit_1 }}
                                 }
                             }
 
                             // Exit if time has elapsed
                             if nonce % 100 == 0 {
-                                let global_best_difficulty =
-                                    *global_best_difficulty.read().unwrap();
                                 if timer.elapsed().as_secs().ge(&cutoff_time) {
-                                    if i.id == 0 {
-                                        progress_bar.set_message(format!(
-                                            "Mining... (difficulty {})",
-                                            global_best_difficulty,
-                                        ));
-                                    }
-                                    if global_best_difficulty.ge(&min_difficulty) {
+                                    if best_difficulty.ge(&min_difficulty) {
+                                        found_best_solution_clone.store(true, Ordering::Relaxed);
                                         // Mine until min difficulty has been met
                                         break;
                                     }
-                                } else if i.id == 0 {
+                                }
+                                if i.id == 0 {
                                     progress_bar.set_message(format!(
-                                        "Mining... (difficulty {}, time {})",
-                                        global_best_difficulty,
-                                        format_duration(
-                                            cutoff_time.saturating_sub(timer.elapsed().as_secs())
-                                                as u32
-                                        ),
+                                        "Mining... ({} sec remaining)",
+                                        cutoff_time.saturating_sub(timer.elapsed().as_secs()),
                                     ));
                                 }
                             }
@@ -202,7 +211,7 @@ impl Miner {
             best_difficulty
         ));
 
-        Solution::new(best_hash.d, best_nonce.to_le_bytes())
+        (Solution::new(best_hash.d, best_nonce.to_le_bytes()), best_difficulty)
     }
 
     pub fn check_num_cores(&self, cores: u64) {
@@ -263,7 +272,7 @@ fn calculate_multiplier(balance: u64, top_balance: u64) -> f64 {
     1.0 + (balance as f64 / top_balance as f64).min(1.0f64)
 }
 
-fn format_duration(seconds: u32) -> String {
+fn format_duration(seconds: u64) -> String {
     let minutes = seconds / 60;
     let remaining_seconds = seconds % 60;
     format!("{:02}:{:02}", minutes, remaining_seconds)
