@@ -99,7 +99,7 @@ impl Miner {
             ));
 
             // Submit transaction
-            match self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false)
+            match self.send_and_confirm(&ixs, ComputeBudget::Fixed(compute_budget), false, best_difficulty.ge(&24))
                 .await {
                     Ok(_) => {}
                     Err(_) => {}

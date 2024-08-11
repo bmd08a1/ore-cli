@@ -31,11 +31,13 @@ const MIN_SOL_BALANCE: f64 = 0.005;
 
 const RPC_RETRIES: usize = 0;
 const _SIMULATION_RETRIES: usize = 4;
-const GATEWAY_RETRIES: usize = 50;
-const CONFIRM_RETRIES: usize = 4;
+const GATEWAY_RETRIES: u64 = 50;
+const CONFIRM_RETRIES: usize = 2;
 
 const CONFIRM_DELAY: u64 = 500;
-const GATEWAY_DELAY: u64 = 0;
+const GATEWAY_DELAY: u64 = 500;
+
+const BUFFER_FEE: u64 = 40000;
 
 pub enum ComputeBudget {
     #[allow(dead_code)]
@@ -49,6 +51,7 @@ impl Miner {
         ixs: &[Instruction],
         compute_budget: ComputeBudget,
         skip_confirm: bool,
+        should_increase_fee: bool,
     ) -> ClientResult<Signature> {
         let progress_bar = spinner::new_progress_bar();
         let signer = self.signer();
@@ -126,27 +129,33 @@ impl Miner {
             // Sign tx with a new blockhash (after approximately ~45 sec)
             if attempts % 10 == 0 {
                 // Reset the compute unit price
-                if self.dynamic_fee {
-                    let fee = match self.dynamic_fee().await {
-                        Ok(fee) => {
-                            progress_bar.println(format!("  Priority fee: {} microlamports", fee));
-                            fee
-                        }
-                        Err(err) => {
-                            let fee = self.priority_fee.unwrap_or(0);
-                            log_warning(
-                                &progress_bar,
-                                &format!(
-                                    "{} Falling back to static value: {} microlamports",
-                                    err, fee
-                                ),
-                            );
-                            fee
-                        }
-                    };
+                if should_increase_fee {
+                    if self.dynamic_fee {
+                        let fee = match self.dynamic_fee().await {
+                            Ok(fee) => {
+                                fee
+                            }
+                            Err(_) => {
+                                let fee = self.priority_fee.unwrap_or(0);
+                                fee
+                            }
+                        };
+
+                        let mut actual_fee = fee + BUFFER_FEE;
+                        actual_fee += (attempts / 10) * (BUFFER_FEE / 4);
+                        progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
+
+                        final_ixs.remove(1);
+                        final_ixs.insert(1, ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
+                        tx = Transaction::new_with_payer(&final_ixs, Some(&fee_payer.pubkey()));
+                    }
+                } else {
+                    let mut actual_fee = self.priority_fee.unwrap_or(0);
+                    actual_fee += (attempts / 10) * (BUFFER_FEE / 4);
+                    progress_bar.println(format!("  Priority fee: {} microlamports", actual_fee));
 
                     final_ixs.remove(1);
-                    final_ixs.insert(1, ComputeBudgetInstruction::set_compute_unit_price(fee));
+                    final_ixs.insert(1, ComputeBudgetInstruction::set_compute_unit_price(actual_fee));
                     tx = Transaction::new_with_payer(&final_ixs, Some(&fee_payer.pubkey()));
                 }
 
@@ -357,8 +366,4 @@ fn log_error(progress_bar: &ProgressBar, err: &str, finish: bool) {
     } else {
         progress_bar.println(format!("  {} {}", "ERROR".bold().red(), err));
     }
-}
-
-fn log_warning(progress_bar: &ProgressBar, msg: &str) {
-    progress_bar.println(format!("  {} {}", "WARNING".bold().yellow(), msg));
 }
