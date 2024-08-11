@@ -31,21 +31,31 @@ impl Miner {
                             .saturating_mul(i.id as u64);
                         let mut nonce = first_nonce;
                         let mut memory = equix::SolverMemory::new();
+                        let mut hash_created: u64 = 0;
+
+                        // Return if core should not be used
+                        if (i.id as u64).ge(&args.cores) {
+                            return 0;
+                        }
+
+                        // Pin to core
+                        let _ = core_affinity::set_for_current(i);
+
                         loop {
-                            // Return if core should not be used
-                            if (i.id as u64).ge(&args.cores) {
-                                return 0;
-                            }
-
-                            // Pin to core
-                            let _ = core_affinity::set_for_current(i);
-
                             // Create hash
-                            let _hx = drillx::hash_with_memory(
+                            if let Ok(hx_array) = drillx::hash_with_memory(
                                 &mut memory,
                                 &challenge,
                                 &nonce.to_le_bytes(),
-                            );
+                            ) {
+                                for hx in hx_array.into_iter() {
+                                    if hx.is_valid(&challenge, &nonce.to_le_bytes()) {
+                                        let _difficulty = hx.difficulty();
+
+                                        hash_created += 1;
+                                    }
+                                }
+                            }
 
                             // Increment nonce
                             nonce += 1;
@@ -57,7 +67,7 @@ impl Miner {
                         }
 
                         // Return hash count
-                        nonce - first_nonce
+                        hash_created
                     }
                 })
             })
